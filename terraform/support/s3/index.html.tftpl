@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+  <title>A beautiful page view counter</title>
+  <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+</head>
+
+  <body>
+
+    <h1>Welcome to The Most Overengineered Page Counter Ever (TM)</h1>
+
+    <div>
+      static page -> s3 bucket -> api gateway -> lambda -> dynamodb
+    </div>
+
+    <br>
+  
+    Web page hits:
+    <div id="visit_counter">
+      Loading...
+    </div>
+  
+  </body>
+</html>
+
+<script> 
+
+  const ENDPOINT_URL = "${endpoint_url}" // templated by terraform
+
+  function loading_spinner(){
+    console.log("Create wait spinner")
+    let i = 0;
+    const loadingInterval = setInterval(function() {
+      const modulo = i % 4
+      let value = ""
+      switch( modulo )
+      {
+        case 0:
+          value = "|"
+        break;
+        case 1:
+          value = "/"
+        break;
+        case 2:
+          value = "-"
+        break;
+        case 3:
+          value = "\\"
+        break;
+        default:
+          value = "Loading ..."
+      }
+      i = ++i;
+      $("#visit_counter").html("Loading " + value);
+    }, 400);
+    return loadingInterval
+  }
+
+  function fetch_page_count(intervalFn){
+    console.log("fetching web page count value")
+    //const url = "https://t81wmqb67f.execute-api.us-east-1.amazonaws.com"
+    $.get(ENDPOINT_URL, function(data, status){
+      clearInterval(intervalFn);
+      $('#visit_counter').text(data);
+    });
+  }
+
+  function main(){
+    const intervalFn = loading_spinner()
+    fetch_page_count(intervalFn)
+    console.log("exiting script")
+  }
+  main()
+
+</script>
+
+
