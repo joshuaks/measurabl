@@ -1,0 +1,33 @@
+
+# Assumptions
+
+This was a infrastructure first project. Therefore I left the webcounter page pretty bare bones and focused on using cloud-native tooling instead.
+
+This would be a low use site. Even though some of the resources I used auto-magically scale, etc. it was never a key point of development. If the site is absolutely slammed I expect there to be conflicts writing to the database and perhaps an incorrect "count" value displayed on the page. The same key/value is accessed repeatedly. There are several ways one could go about preventing this. One is adding a new row to the DynamoDB table (with some value) with each access to the page. Then the webpage hit value would be the number of rows present in the database. No more fighting to work with a single entry.
+
+Security is not extremely important for this use case. The two biggest missing features are 1) no ssl on the endpoint 2) the api is publicly exposed.
+
+This is not meant to be the most flexible piece of software. It is a webpage hit counter after all. More values could be variablized but with little additional benefit.
+
+
+
+# Improvements
+
+* Implement SSL. Possibly with CloudFront.
+
+* Use a proper static domain name. Domain transfer suck. Furthermore my domain is registered with a privacy respecting service and I didn't want to lose that.
+
+* Terraform has a chicken and egg problem upon first initialization. Moving to Terragrunt would resolve this issue while providing a much more modular solution.
+
+* I used the Lambda role ARN created by the AWS UI. An obvious improvement would be to create this role inside of Terraform.
+
+* Create a values file to pass in to Terraform. I stuck with defaults in variables.tf to keep things simple for development purporses. Of course, someone else can always override them. :)
+
+* Lock down the API. It's wide open currently and will accept about anything.
+
+* And misc. other tweaks to make this a properly secured piece of software.
+
+
+# Why
+
+I decided to lean on serverless-architecture because it provides many benefits. For example, Lambda will just scale up for me without any intervention. While I hadn't had much experience with some of these tools, this seemed like a great intro to serverless computing.
