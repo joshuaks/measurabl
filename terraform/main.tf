@@ -7,7 +7,7 @@ locals {
 # #################################################
 # DYNAMODB - WEB PAGE VIEW COUNTER DB
 # #################################################
-resource aws_dynamodb_table _ {
+resource aws_dynamodb_table db {
   name           = var.default_name
   billing_mode   = "PAY_PER_REQUEST"
   hash_key       = local.db_table_hash_key
@@ -23,9 +23,9 @@ resource aws_dynamodb_table _ {
 }
 
 
-resource aws_dynamodb_table_item _ {
-  table_name = aws_dynamodb_table._.name
-  hash_key   = aws_dynamodb_table._.hash_key
+resource aws_dynamodb_table_item db {
+  table_name = aws_dynamodb_table.db.name
+  hash_key   = aws_dynamodb_table.db.hash_key
 
     item = <<ITEM
 {
@@ -54,7 +54,7 @@ data archive_file lambda {
 }
 
 
-resource aws_lambda_function _ {
+resource aws_lambda_function app {
   filename         = data.archive_file.lambda.output_path
   function_name    = "update_webpage_counter"
   role             = var.lambda_role_arn
@@ -66,7 +66,7 @@ resource aws_lambda_function _ {
 
   environment {
     variables    = {
-      TABLE_NAME = aws_dynamodb_table._.name
+      TABLE_NAME = aws_dynamodb_table.db.name
       WEB_PAGE   = var.db_webpage_name
     }
   }
@@ -78,11 +78,11 @@ resource aws_lambda_function _ {
 # #################################################
 # GATEWAY API - sits in front of the lambda so it can be trigged on-demand
 # #################################################
-resource aws_apigatewayv2_api _ {
+resource aws_apigatewayv2_api endpoint {
   protocol_type   = "HTTP"
   name            = var.default_name
   description     = "points to aws lambda which reports and updates a web page view counter"
-  target          = aws_lambda_function._.arn
+  target          = aws_lambda_function.app.arn
   cors_configuration {
     allow_origins = ["http://*"]
     allow_methods = ["GET"]
@@ -90,29 +90,29 @@ resource aws_apigatewayv2_api _ {
 }
 
 
-resource aws_apigatewayv2_integration _ {
-  api_id                 = aws_apigatewayv2_api._.id
+resource aws_apigatewayv2_integration endpoint {
+  api_id                 = aws_apigatewayv2_api.endpoint.id
   integration_type       = "AWS_PROXY"
   connection_type        = "INTERNET"
   description            = "integrates with the lamda web page counter logic"
   integration_method     = "POST" # this is unrelated to web calls
-  integration_uri        = aws_lambda_function._.invoke_arn
+  integration_uri        = aws_lambda_function.app.invoke_arn
   payload_format_version = "2.0"
 }
 
 
-resource aws_lambda_permission _ {
+resource aws_lambda_permission endpoint {
   statement_id  = "AllowAPIgatewayInvokation"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function._.function_name
+  function_name = aws_lambda_function.app.function_name
   principal     = "apigateway.amazonaws.com"
 }
 
 
-resource aws_apigatewayv2_route _ {
-  api_id    = aws_apigatewayv2_api._.id
+resource aws_apigatewayv2_route endpoint {
+  api_id    = aws_apigatewayv2_api.endpoint.id
   route_key = "ANY /"
-  target    = "integrations/${aws_apigatewayv2_integration._.id}"
+  target    = "integrations/${aws_apigatewayv2_integration.endpoint.id}"
 }
 
 
@@ -121,18 +121,18 @@ resource aws_apigatewayv2_route _ {
 # #################################################
 # S3 BUCKET - hosts the static site
 # #################################################
-resource aws_s3_bucket _ {
+resource aws_s3_bucket website {
   bucket_prefix = lower(var.default_name)
 }
 
 
-resource aws_s3_bucket_acl _ {
-  bucket = aws_s3_bucket._.id
+resource aws_s3_bucket_acl website {
+  bucket = aws_s3_bucket.website.id
   acl    = "private"
 }
 
 
-resource aws_s3_account_public_access_block _ {
+resource aws_s3_account_public_access_block website {
   # must be disabled to serve the static site
   block_public_acls   = false
   block_public_policy = false
@@ -140,21 +140,21 @@ resource aws_s3_account_public_access_block _ {
 }
 
 
-resource aws_s3_bucket_versioning _ {
-  bucket = aws_s3_bucket._.id
+resource aws_s3_bucket_versioning website {
+  bucket = aws_s3_bucket.website.id
   versioning_configuration {
     status = "Enabled"
   }
 }
 
 
-resource aws_s3_bucket_policy _ {
-  bucket = aws_s3_bucket._.id
-  policy = data.aws_iam_policy_document._.json
+resource aws_s3_bucket_policy website {
+  bucket = aws_s3_bucket.website.id
+  policy = data.aws_iam_policy_document.website.json
 }
 
 
-data aws_iam_policy_document _ {
+data aws_iam_policy_document website {
   version = "2012-10-17"
   statement {
     effect         = "Allow"
@@ -169,32 +169,32 @@ data aws_iam_policy_document _ {
     ]
 
     resources      = [
-      "${aws_s3_bucket._.arn}/*",
+      "${aws_s3_bucket.website.arn}/*",
     ]
   }
 }
 
 
-resource aws_s3_bucket_website_configuration _ {
-  bucket   = aws_s3_bucket._.id
+resource aws_s3_bucket_website_configuration website {
+  bucket   = aws_s3_bucket.website.id
   index_document {
     suffix = "index.html"
   }
 }
 
 
-data template_file _ {
+data template_file index_html {
   template = file("./support/s3/index.html.tftpl")
   vars = {
-    "endpoint_url" = aws_apigatewayv2_api._.api_endpoint
+    "endpoint_url" = aws_apigatewayv2_api.endpoint.api_endpoint
   }
 }
 
 
-resource aws_s3_object _ {
+resource aws_s3_object index_html {
   key              = "index.html"
-  bucket           = aws_s3_bucket._.id
-  content          = data.template_file._.rendered
+  bucket           = aws_s3_bucket.website.id
+  content          = data.template_file.index_html.rendered
   content_encoding = "uft-8"
   content_type     = "text/html"
   content_language = "en"
