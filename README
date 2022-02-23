@@ -27,6 +27,8 @@ This is not meant to be the most flexible piece of software. It is a webpage hit
 
 * And misc. other tweaks to make this a properly secured piece of software.
 
+* Switch Lambda from Nodejs to a less resource intensive and faster langauge. Go comes to mind.
+
 
 # Why
 
